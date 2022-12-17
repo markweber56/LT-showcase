@@ -7,37 +7,36 @@ class GildedRose(object):
 
     def update_quality(self):
         for item in self.items:
-            if self.is_legendary(item):
-                # legendary items do not need to be sold or decrease in value
+            if self.is_ordinary_item(item):
+                reduce_by = 2 if item.sell_in - 1 < 0 else 1
+                item.quality = self.validate_new_quality(item.quality - reduce_by)
+            elif self.is_legendary(item):
+                # quality and sell_in do not change for legendary items
                 continue
+            elif self.is_conjured(item):
+                reduce_by = 4 if item.sell_in - 1 < 0 else 2
+                item.quality = self.validate_new_quality(item.quality - reduce_by)
+            elif self.is_backstage_pass(item):
+                self.update_backstage_pass(item)
+            elif self.is_aged_brie(item):
+                increase_by = 2 if item.sell_in - 1 < 0 else 1
+                item.quality = self.validate_new_quality(item.quality + increase_by)
 
-            if item.name != "Aged Brie" and item.name != "Backstage passes to a TAFKAL80ETC concert":
-                if item.quality > 0:
-                    if item.name != "Sulfuras, Hand of Ragnaros":
-                        item.quality = item.quality - 1
-            else:
-                if item.quality < 50:
-                    item.quality = item.quality + 1
-                    if item.name == "Backstage passes to a TAFKAL80ETC concert":
-                        if item.sell_in < 11:
-                            if item.quality < 50:
-                                item.quality = item.quality + 1
-                        if item.sell_in < 6:
-                            if item.quality < 50:
-                                item.quality = item.quality + 1
-            if item.name != "Sulfuras, Hand of Ragnaros":
-                item.sell_in = item.sell_in - 1
-            if item.sell_in < 0:
-                if item.name != "Aged Brie":
-                    if item.name != "Backstage passes to a TAFKAL80ETC concert":
-                        if item.quality > 0:
-                            if item.name != "Sulfuras, Hand of Ragnaros":
-                                item.quality = item.quality - 1
-                    else:
-                        item.quality = item.quality - item.quality
-                else:
-                    if item.quality < 50:
-                        item.quality = item.quality + 1
+            item.sell_in = item.sell_in - 1
+
+    def update_backstage_pass(self, item):
+        if item.sell_in - 1 < 0:
+            # quality is 0 after concert
+            item.quality = 0
+            return
+        if item.sell_in > 10:
+            item.quality = self.validate_new_quality(item.quality + 1)
+            return
+        if item.sell_in > 5:
+            item.quality = self.validate_new_quality(item.quality + 2)
+            return
+        # quality < 5
+        item.quality = self.validate_new_quality(item.quality + 3)
 
     def is_conjured(self, item):
         return "conjured" in item.name.lower()
@@ -49,15 +48,26 @@ class GildedRose(object):
         '''
         return "sulfuras" in item.name.lower()
 
-    def item_appreciates(self, item):
-        return item.name == "Aged Brie" or self.is_backastage_pass(item)
+    def is_aged_brie(self, item):
+        return item.name == "Aged Brie"
 
-    def is_backastage_pass(self, item):
+    def is_backstage_pass(self, item):
         return "backstage pass" in item.name.lower()
 
+    def is_ordinary_item(self, item):
+        return not any([
+            self.is_conjured(item),
+            self.is_legendary(item),
+            self.is_aged_brie(item),
+            self.is_backstage_pass(item)
+            ])
 
-
-
+    def validate_new_quality(self, quality):
+        if quality > 50:
+            return 50
+        if quality < 0:
+            return 0
+        return quality
 
 class Item:
     def __init__(self, name, sell_in, quality):
